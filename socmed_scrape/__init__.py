@@ -1,0 +1,2 @@
+import socmed_scrape.facebook.facebook
+import socmed_scrape.instagram.instagram
