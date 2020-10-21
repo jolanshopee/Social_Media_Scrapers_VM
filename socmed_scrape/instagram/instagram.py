@@ -15,19 +15,29 @@ from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException
 from selenium.common.exceptions import InvalidArgumentException
 
-DRIVER_PATH = os.path.join(os.getcwd(), glob('*chromedriver*')[0])
-options = Options()
-driver = webdriver.Chrome(DRIVER_PATH, options=options)
 
-
-#RETURNS SHOP DETAILS
-def get_page_details(url):
+#GET INSTAGRAM PAGE DETAILS
+"""
+Function: get_page_details(driver,url)
+Description: Gets the details of an instagram page.
+Arguments: 
+    - driver : configured webdriver
+    - shop_url : instagram page url
+Return Value: a `dict` which contains the page details:
+    - 'ig_url' : instagram page url
+    - 'shop_name' : instagram page username
+    - 'posts' : number of posts
+    - 'followers' : number of instagram page followers
+    - 'website' : page has website link
+"""
+def get_page_details(driver,url):
     """Get shop/page details"""
     page_details = {'ig_url': url}
     try:
-        # shop main page
+        #go to the ig shop main page
         driver.get(page_details['ig_url'])
 
+        #wait for the element to be present for 5 seconds
         WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, '//main[@role="main"]/div/header')))
         print("Page details has been loaded")
         try:
@@ -48,11 +58,82 @@ def get_page_details(url):
             page_details['website'] = driver.find_element_by_xpath('//a[@page_id="profilePage"]').get_attribute('textContent')
         except NoSuchElementException:
             page_details['website'] = ''
-        
+
+    #if an error occurred raise an ecception and return the details    
     except Exception as e:
         print(e)
-        #return page_details
+        return page_details
 
     return page_details
 
 
+
+
+#GET INSTAGRAM POST DETAILS
+"""
+Function: get_post_details(driver,url, limit)
+Description: Gets the latest posts of the facebook page.
+Arguments: 
+    - driver : configured webdriver
+    - url : instagram page url
+    - limit: int arg to set the max limit posts to get per page
+Return Value: a `list` which contains the post details:
+    - 'url' : instagram page url
+    - 'publish_date' : page username
+    - 'post_content' : text content of the post
+    - 'likes' : number of post likes
+    - 'post_link' : instagram post link
+"""
+def get_post_details(driver,url,limit):
+    details = []
+    try:
+        #go to the ig shop main page
+        driver.get(url)
+        #wait for the element to be present for 5 seconds
+        WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, '//article[@class="ySN3v"]/div/div')))
+        
+        #get the container element for all posts
+        container = driver.find_element_by_xpath('//article[@class="ySN3v"]/div/div[contains(@style, "flex-direction: column")]')
+        #get the the number of post based on the limit
+        posts = container.find_elements_by_xpath('.//div[@class="v1Nh3 kIKUG  _bz0w"]')[:limit]
+        print(len(posts))
+        print("Page posts has been loaded")
+
+        #get post links
+        post_links = []
+        for post in posts:
+            try:
+                post_links.append(post.find_element_by_xpath('./a').get_attribute('href'))
+            except NoSuchElementException:
+                print("post link not found")
+
+        #for each post link get go to the post page, then get the details
+        for link in post_links:
+            driver.get(link)
+            WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, '//article[@role="presentation"]')))
+            try:
+                likes = driver.find_element_by_xpath('//div[@class="Nm9Fw"]/button/span').get_attribute('textContent')
+            except NoSuchElementException:
+                likes = ""
+            try:
+                publish_date = driver.find_element_by_xpath('//a[@class="c-Yi7"]/time').get_attribute('datetime')
+            except NoSuchElementException:
+                publish_date = ""
+            try:
+                post_content = driver.find_element_by_xpath('//*[@id="react-root"]/section/main/div/div/article/div[3]/div[1]/ul/div/li/div/div/div[2]/span').get_attribute('textContent')
+            except NoSuchElementException:
+                post_content = ""
+
+            details.append({
+                'url' : url,
+                'publish_date' : datetime.fromisoformat(publish_date[:-1]).strftime('%m/%d/%Y'),
+                'post_content' : post_content,
+                'likes' : likes,
+                'post_link' : link,  
+            })
+    #if an error occurred raise an ecception and return the details
+    except Exception as e:
+        print(e)
+        return details
+
+    return details
