@@ -1,19 +1,18 @@
 #BELOW ARE THE SAMPLE SCRIPTS FOR THE INSTAGRAM PACKAGE FUNCTIONS
+import instagram as ig
+import os
+from glob import glob
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+import pandas as pd
+import csv
+from datetime import datetime, timedelta
 
-"""
-Sample function to get the instahram page details.
-This will get the input from a csv and output the result in csv.
-"""
 def page_details_sample():
-    import instagram as ig
-    import os
-    from glob import glob
-    from selenium import webdriver
-    from selenium.webdriver.chrome.options import Options
-
-    import pandas as pd
-    import csv
-    from datetime import datetime, timedelta
+    """
+    Sample function to get the instagram page details.
+    This will get the input from a csv and output the result in csv.
+    """
 
     #initialize and config webdriver
     DRIVER_PATH = os.path.join(os.getcwd(), glob('*chromedriver*')[0])
@@ -26,32 +25,24 @@ def page_details_sample():
     
     page_details = []
     page_details_filename = 'page_details_' + (datetime.utcnow() + timedelta(hours=8)).strftime('%Y%m%d%H%M') + '.csv'
+    df_page_details = pd.DataFrame()
     #execute the get_page_details function for each url
     for url in URLs:
         try:
             #append the result to the list
             page_details.append(ig.get_page_details(driver,url))
-            df_page_details = pd.DataFrame(page_details) 
-        except Exception:
-            df_page_details = pd.DataFrame(page_details)
-    #save list to sa csv file
+        except Exception as e:
+            print(e)
+    df_page_details = df_page_details.append(page_details) 
     df_page_details.to_csv(page_details_filename, index=0)
 
 
-"""
-Sample function to get the instagram post details.
-This will get the input from a csv and output the result in csv.
-"""
-def post_details_sample():
-    import instagram as ig
-    import os
-    from glob import glob
-    from selenium import webdriver
-    from selenium.webdriver.chrome.options import Options
 
-    import pandas as pd
-    import csv
-    from datetime import datetime, timedelta
+def post_details_sample():
+    """
+    Sample function to get the instagram post details.
+    This will get the input from a csv and output the result in csv.
+    """
 
     #initialize and config webdriver
     DRIVER_PATH = os.path.join(os.getcwd(), glob('*chromedriver*')[0])
@@ -66,12 +57,11 @@ def post_details_sample():
     df_post_details = pd.DataFrame()
     #execute the get_page_details function for each url
     for url in URLs:
-        post_details = (ig.get_post_details(driver,url,5))
-        print(post_details)
-        if df_post_details.empty:
-            df_post_details = pd.DataFrame(post_details)
-        else:
-            df_post_details = df_post_details.append(pd.DataFrame(post_details))
+        try:
+            post_details = ig.get_post_details(driver,url,5)
+        except Exception as e:
+            print(e)
+        df_post_details = df_post_details.append(post_details)
     df_post_details.to_csv(post_details_filename, index=0)
 
 
