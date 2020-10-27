@@ -39,12 +39,15 @@ def get_page_details(driver,url):
         try:
             page_details['shop_name'] = driver.find_element_by_xpath('//header/section/div/h1').get_attribute('textContent')  
         except NoSuchElementException:
-            page_details['shop_name'] = "Page not found/link error"
+            page_details['shop_name'] = ''
+        try:
+            page_details['about'] = driver.find_element_by_xpath('//header/section/div/span').get_attribute('textContent')
+        except NoSuchElementException:
+            page_details['about'] = ''
         try:
             page_details['posts'] = driver.find_element_by_xpath('//header/section/ul/li[1]/a/span').get_attribute('textContent')
         except NoSuchElementException:
             page_details['posts'] = ''
-            
         try:
             page_details['followers'] = driver.find_element_by_xpath('//header/section/ul/li[2]/a/span').get_attribute('title')
         except NoSuchElementException:
