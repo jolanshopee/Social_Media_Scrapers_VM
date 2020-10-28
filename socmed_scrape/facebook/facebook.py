@@ -2,6 +2,7 @@ import os
 import time
 import json
 import sys
+import traceback
 from datetime import datetime, timedelta
 from glob import glob
 from selenium import webdriver
@@ -13,13 +14,11 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException
+from facebook_scraper import get_posts
 
-DRIVER_PATH = os.path.join(os.getcwd(), glob('*chromedriver*')[0])
-options = Options()
-driver = webdriver.Chrome(DRIVER_PATH, options=options)
 
 #LOGIN
-def login(self):
+def login(driver):
     """Log in w/ username and password.
 
     If the script is executed with 2 positional arguments
@@ -40,7 +39,7 @@ def login(self):
     return
 
 #RETURNS FB SEARCH RESULTS
-def search_keywords(keyword, limit):
+def search_keywords(driver, keyword, limit):
     """Get pages associated with the search keyword.
     Function: search_keywords(driver, keyword, limit)
     Description: Searches using the keywords and gets the page link, name, and username from the search result.
@@ -115,7 +114,7 @@ def search_keywords(keyword, limit):
     return keyword_urls
 
 #RETURNS LATEST POST DATE
-def chk_latest_post(shop_url):
+def chk_latest_post(driver, shop_url):
     page_url = {'url': shop_url}
     post_dates = []
     try:
@@ -134,46 +133,101 @@ def chk_latest_post(shop_url):
     return post_dates[0]
 
 #RETURNS SHOP DETAILS
-def get_page_details(shop_url):
-    """Get shop/page details"""
-    page_details = {'url': shop_url}
+def get_page_details(driver, shop_url):
+    """Get shop/page details
+    Function: get_page_details(driver, shop_url)
+    Description: Gets the details of a facebook page.
+    Arguments: 
+        - driver : configured webdriver
+        - shop_url : facebook page url
+    Return Value: a `dict` which contains the page details:
+        - 'url' : facebook page url
+        - 'username' : page username
+        - 'category' : facebook page category
+        - 'likes' : number of page likes
+        - 'has_shop' : if page has a shop button
+    """
+    shop_result = {'url': shop_url}
+    shop_result = {'username': shop_url.split('/')[-2]}
     try:
         # shop main page
-        driver.get(page_details['url'])
+        driver.get(shop_url + 'about')
+        about_body = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, '//*[@id="mount_0_0"]/div/div[1]/div[1]/div[3]/div/div/div[1]/div[1]/div[4]/div/div')))
+        print("Page has been loaded")
+        time.sleep(1.5)
         try:
-            WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, '//div[@id="entity_sidebar"]')))
-            print("Page details has been loaded")
-            page_details['shop_name'] = driver.find_element_by_xpath('//div[@id="entity_sidebar"]/div[2]/div[1]/div/div/div/span/div/span[1]/a').get_attribute('textContent')  
+            shop_result['shop_name'] = driver.find_element_by_xpath('//*[@id="mount_0_0"]/div/div[1]/div[1]/div[3]/div/div/div[1]/div[1]/div[1]/div[2]/div/div/div/div[2]/div/div/div[1]/h2').get_attribute('textContent')  
         except NoSuchElementException:
-            page_details['shop_name'] = "Page not found/link error"
+            shop_result['shop_name'] = ''
+            print('Cannot get shop name')
 
         try:
-            page_details['username'] = driver.find_element_by_xpath('//div[@id="entity_sidebar"]/div[2]/div[2]/div/div/a').get_attribute('textContent')
-        except NoSuchElementException:
-            page_details['username'] = ''
-            
-        try:
-            page_details['category'] = driver.find_element_by_xpath('//a[contains(@href,"category")]').get_attribute('textContent')
-        except NoSuchElementException:
-            page_details['category'] = ''
+            likes_xpath = "//div[@role='main']/div[4]/div/div/div/div/div[contains(.//span, 'like this')]"
+            shop_result['likes'] = driver.find_element_by_xpath(likes_xpath).text.split(' ')[0].replace(',','')
+        except Exception as e:
+            shop_result['likes'] = ''
+            print('Cannot get likes')
 
         try:
-            page_details['likes'] = driver.find_element_by_xpath('//div[contains(text(),"people like this")]').get_attribute('textContent').split(' ')[0]
-        except NoSuchElementException:
-            page_details['likes'] = ''
-        #Check if Shop Exists
+            shop_result['about'] = about_body.find_element_by_xpath('.//span[contains(text(),"About")]/ancestor::div[2]').get_attribute('textContent').split('About',1)[1]
+        except Exception as e:
+            shop_result['about'] = ''
+            print('Cannot get about')
+
         try:
-            driver.find_element_by_xpath('//button[contains(text(),"Shop")]')
-            page_details['has_shop'] = '1'
-        except NoSuchElementException:
-            print('Shop Not Found')
-            page_details['has_shop'] = '0'
+            shop_result['website'] = about_body.find_element_by_xpath('.//i[contains(@class, "sx_0c66b8")]/ancestor::div[2]').get_attribute('textContent')
+        except Exception as e:
+            shop_result['website'] = ''
+            print('Cannot get website')
+
+        try:
+            shop_result['mobile'] = about_body.find_element_by_xpath('.//i[contains(@class, "sx_5af472")]/ancestor::div[2]').get_attribute('textContent')
+        except Exception as e:
+            shop_result['mobile'] = ''
+            print('Cannot get mobile')
+
+        try:
+            ig_base_url = "https://www.instagram.com/"
+            ig = driver.find_element_by_xpath('//i[contains(@class, "sx_1acfe2")]/ancestor::div[2]/div[2]/div/div/span/span/a').get_attribute('textContent')
+            shop_result['ig link'] = ig_base_url + ig
+        except Exception as e:
+            shop_result['ig link'] = ''
+            print('Cannot get ig link')
+
+        try:
+            shop_result['page_type'] = driver.find_element_by_xpath(
+                "//div[@role='main']/div/div/div/div/div/div/div/div/div[2]"
+            ).text.strip().split('\n')[-1]
+            pass
+        except Exception as e:
+            shop_result['page_type'] = ''
+            print('Cannot get page type')
+
+        try:
+            base_path = '//*[@id="mount_0_0"]/div/div[1]/div[1]/div[3]/div/div/div[1]/div[1]/div[4]/div'
+            shop_loc = driver.find_element_by_xpath(
+                base_path + '//a[contains(@href, "maps")]'
+            )
+            shop_result['location_text'] = shop_loc.text
+            shop_result['location_url'] = shop_loc.get_attribute('href')
+
+        except Exception as e:
+            print('Cannot get location info')
+            shop_result['location_text'] = ''
+            shop_result['location_url'] = ''
+
+        # latest post
+        post_timestamps = []
+        for ts in get_posts(shop_result['username'], pages=2):
+            post_timestamps.append(ts['time'])
+
+        latest_post = sorted(post_timestamps, reverse=True)[0]
+        shop_result['last_post_date'] = latest_post.strftime('%m/%d/%Y')
 
     except Exception as e:
-        print(e)
-    pass
+        print(traceback.format_exc())
 
-    return page_details
+    return shop_result
 
 #RETURNS LATEST POST DETAILS
 def get_latest_posts(shop_url,limit,details = []):
