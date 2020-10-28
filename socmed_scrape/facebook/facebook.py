@@ -40,36 +40,75 @@ def login(self):
     return
 
 #RETURNS FB SEARCH RESULTS
-def search_keywords( keyword, limit):
-    keyword_urls = []
+def search_keywords(keyword, limit):
+    """Get pages associated with the search keyword.
+    Function: search_keywords(driver, keyword, limit)
+    Description: Searches using the keywords and gets the page link, name, and username from the search result.
+    Arguments: 
+    - driver : configured webdriver
+    - keyword : string arg used for searching pages
+    - limit : int arg used to limit the result to be returned 
+    Return Value: a `list` of page search result that contains the following:
+        - 'keyword': keyword used in search
+        - 'shop_name': facebook page name 
+        - 'url': link of the facebook page
+        - 'username': username of the page
+    """
+    print('SEARCHING FOR', keyword)
     search_url = 'https://www.facebook.com/search/pages/?q={}'
+    keyword_urls = []
+    page_results = []
     driver.get(search_url.format(keyword + ' philippines'))
-    # Get scroll height
-    last_height = driver.execute_script("return document.body.scrollHeight")
-    while True:
-        # Scroll down to bottom
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        # Wait to load page
-        time.sleep(0.5)
-        # Calculate new scroll height and compare with last scroll height
-        new_height = driver.execute_script("return document.body.scrollHeight")
-        if new_height == last_height:
-            break
-        last_height = new_height
 
-    #Get search results
-    results = driver.find_elements_by_css_selector("div[class='nc684nl6']")
-    for r in results:
+    # Get scroll height
+    worked = False
+    for retry in range(5):
+        xpaths_to_try = [
+            "//div[@aria-label='Preview of a Search Result']",
+            "//div[@aria-label='Search Results']",
+        ]
+        for xpath in xpaths_to_try:
+            try:
+                search_body = driver.find_element_by_xpath(xpath)
+                worked = True
+            except:
+                pass
+
+        if worked:
+            break
+        else:
+            print('Waiting for page to load')
+            time.sleep(5)
+
+    if not worked:
+        return []
+
+    end_of_results = False
+    while not end_of_results and len(page_results) < limit:
+        # Scroll down to bottom and wait to load page
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(0.5)
+        nested_div_depth = 7
+        page_results = search_body.find_elements_by_xpath('/'.join(['div']*nested_div_depth))
+        end_of_results = len(search_body.find_elements_by_xpath("//span[text()='End of Results']")) > 0
+
+    print('limit reached - {} shops'.format(len(page_results)))
+    for page in page_results:
         # get shop/page details
-        shop_elem = r.find_element_by_css_selector("a")
-        url = shop_elem.get_attribute('href').split('?')[0]
-        if url not in [i['url'] for i in keyword_urls]:
-            keyword_urls.append({
-                'keyword': keyword,
-                'shop_name': shop_elem.text,
-                'url': url,
-                'username': url.split('/')[-2]
-            })
+        try:
+            shop_elem = page.find_element_by_css_selector("a[role='link']")
+            url = shop_elem.get_attribute('href').split('?')[0]
+            if url not in [i['url'] for i in keyword_urls]:
+                keyword_urls.append({
+                    'keyword': keyword,
+                    'shop_name': shop_elem.text,
+                    'url': url,
+                    'username': url.split('/')[-2]
+                })
+            print('>>', shop_elem.text)
+        except Exception as e:
+            pass
+
 
     keyword_urls = keyword_urls[:limit]
     print(keyword, len(keyword_urls), 'shops found')
