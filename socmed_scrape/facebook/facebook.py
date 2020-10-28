@@ -1,6 +1,7 @@
 import os
 import time
 import json
+import sys
 from datetime import datetime, timedelta
 from glob import glob
 from selenium import webdriver
@@ -19,8 +20,23 @@ driver = webdriver.Chrome(DRIVER_PATH, options=options)
 
 #LOGIN
 def login(self):
+    """Log in w/ username and password.
+
+    If the script is executed with 2 positional arguments
+    (i.e. python fb_scrape.py username@shopee.com mypassword)
+    then the browser will log in automatically with the provided credentials.
+    """
     driver.get('https://www.facebook.com/')
-    _ = input('Press Enter to continue.')
+    if len(sys.argv) < 3:
+        _ = input('Please log into the browser before continuing')
+    else:
+        username = sys.argv[1]
+        password = sys.argv[2]
+        driver.find_element_by_xpath('//input[@id="email"]').send_keys(username)
+        driver.find_element_by_xpath('//input[@id="pass"]').send_keys(password)
+        driver.find_element_by_xpath('//button[@name="login"]').click()
+        time.sleep(10)
+
     return
 
 #RETURNS FB SEARCH RESULTS
