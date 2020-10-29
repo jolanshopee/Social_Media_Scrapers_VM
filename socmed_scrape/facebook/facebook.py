@@ -3,6 +3,7 @@ import time
 import json
 import sys
 import traceback
+import re
 from datetime import datetime, timedelta
 from glob import glob
 from selenium import webdriver
@@ -148,10 +149,23 @@ def get_page_details(driver, shop_url):
         - 'has_shop' : if page has a shop button
     """
     shop_result = {'url': shop_url}
-    shop_result = {'username': shop_url.split('/')[-2]}
+
+    # match only alphanumeric after facebook.com, 
+    pattern = 'facebook\.com\/([A-Za-z0-9-_.]*)'
+    try:
+        username = re.search(pattern, shop_url).group(1)
+    except:
+        print('username not found')
+        username = 'n/a'
+    shop_result = {'username': username}
+
+    about_suffix = 'about'
+    if not shop_url.endswith('/'):
+        about_suffix = '/' + about_suffix
+
     try:
         # shop main page
-        driver.get(shop_url + 'about')
+        driver.get(shop_url + about_suffix)
         about_body = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, '//*[@id="mount_0_0"]/div/div[1]/div[1]/div[3]/div/div/div[1]/div[1]/div[4]/div/div')))
         print("Page has been loaded")
         time.sleep(1.5)
@@ -246,8 +260,13 @@ def get_latest_posts(shop_url,days=7):
     """
     post_details = {'url': shop_url}
     print(post_details['url'])
-    username = shop_url.split('/')[-2]
-    print(username)
+    # match only alphanumeric after facebook.com, 
+    pattern = 'facebook\.com\/([A-Za-z0-9-_.]*)'
+    try:
+        username = re.search(pattern, shop_url).group(1)
+    except:
+        print('username not found')
+        username = 'n/a'
     details = []
     chk_post = 0
     try:
