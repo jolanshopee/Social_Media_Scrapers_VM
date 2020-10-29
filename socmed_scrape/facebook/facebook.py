@@ -3,6 +3,7 @@ import time
 import json
 import sys
 import traceback
+import re
 from datetime import datetime, timedelta
 from glob import glob
 from selenium import webdriver
@@ -148,10 +149,23 @@ def get_page_details(driver, shop_url):
         - 'has_shop' : if page has a shop button
     """
     shop_result = {'url': shop_url}
-    shop_result = {'username': shop_url.split('/')[-2]}
+
+    # match only alphanumeric after facebook.com, 
+    pattern = 'facebook\.com\/([A-Za-z0-9-_.]*)'
+    try:
+        username = re.search(pattern, shop_url).group(1)
+    except:
+        print('username not found')
+        username = 'n/a'
+    shop_result = {'username': username}
+
+    about_suffix = 'about'
+    if not shop_url.endswith('/'):
+        about_suffix = '/' + about_suffix
+
     try:
         # shop main page
-        driver.get(shop_url + 'about')
+        driver.get(shop_url + about_suffix)
         about_body = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, '//*[@id="mount_0_0"]/div/div[1]/div[1]/div[3]/div/div/div[1]/div[1]/div[4]/div/div')))
         print("Page has been loaded")
         time.sleep(1.5)
@@ -230,50 +244,47 @@ def get_page_details(driver, shop_url):
     return shop_result
 
 #RETURNS LATEST POST DETAILS
-def get_latest_posts(shop_url,limit,details = []):
+def get_latest_posts(shop_url,days=7):
+    """
+    Function: get_latest_posts(shop_url, days=)
+    Description: Gets the latest posts of the facebook page.
+    Arguments: 
+        - shop_url : facebook page url
+        - days: int arg to set the number days (optional, default is 7)
+    Return Value: a `dict` which contains the page details:
+        - 'url' : facebook page url
+        - 'publish_time' : post publish time
+        - 'post_content' : post text content
+        - 'likes' : number of post likes
+        - 'comments' : number of post comments
+    """
     post_details = {'url': shop_url}
+    print(post_details['url'])
+    # match only alphanumeric after facebook.com, 
+    pattern = 'facebook\.com\/([A-Za-z0-9-_.]*)'
     try:
-        driver.get(post_details['url'].replace("https://www.", "https://m."))
-
-        posts = {}
-        
-        for scroll in range(0,(limit+1)):
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(1)
-        posts = driver.find_elements_by_xpath('//article[@class="_55wo _5rgr _5gh8 _3drq async_like"]')[:limit]
-        
-        for post in posts:
-            post_data = json.loads(post.get_attribute('data-ft'))
-            get_timestamp = post_data['page_insights'][post_data['page_id']]['post_context']['publish_time']
-            #post_details['publish_time'] = datetime.fromtimestamp(get_timestamp).strftime('%m/%d/%Y')
-            try:
-                post_content = post.find_element_by_xpath('.//div[@class="story_body_container"]/div/span').get_attribute('textContent')
-            except NoSuchElementException:
-                print('Content cannot be extracted')
-                post_content = 'n/a' 
-            try:
-                reactions = post.find_element_by_xpath('.//span[contains(text(), "Likes")]').get_attribute('textContent')
-            except NoSuchElementException:
-                print('Reactions Not Found')
-                reactions = '0'
-            try:
-                comments = post.find_element_by_xpath('.//span[contains(text(), "Likes")]').get_attribute('textContent').split(' ')[0]
-            except NoSuchElementException:
-                print('Comments Not Found')
-                comments = '0'
-            #Share Data is Unavailable 
-            # try:
-            #     post_details['shares'] = post.find_element_by_xpath('.//div[@data-sigil="reactions-bling-bar"]/div[2]/span[2]').get_attribute('textContent').split(' ')[0]
-            # except NoSuchElementException:
-            #     print('Shares Not Found')
-            #     post_details['shares'] = '0'
-            details.append({
+        username = re.search(pattern, shop_url).group(1)
+    except:
+        print('username not found')
+        username = 'n/a'
+    details = []
+    chk_post = 0
+    try:
+        for post in get_posts(username):
+            
+            if (datetime.now() - post['time']).days <= 7:
+                details.append({
                 'url' : shop_url,
-                'publish_time' : datetime.fromtimestamp(get_timestamp).strftime('%m/%d/%Y'),
-                'post_content' : post_content,
-                'reactions' : reactions,
-                'comments' : comments     
-            })
+                'publish_time' : post['time'].strftime('%m/%d/%Y'),
+                'post_content' : post['text'],
+                'likes' : post['likes'],
+                'comments' : post['comments']     
+                })
+            elif chk_post > 2:
+                break
+            else:
+                chk_post += 1
+            
 
     except Exception as e:
         print(e)
