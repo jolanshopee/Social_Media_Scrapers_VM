@@ -84,9 +84,6 @@ def get_page_details(driver,url):
     return page_details
 
 
-
-
-
 def get_post_details(driver,url,limit):
     """
     GET INSTAGRAM POST DETAILS
@@ -104,53 +101,51 @@ def get_post_details(driver,url,limit):
         - 'post_link' : instagram post link
     """
     details = []
+    #go to the ig shop main page
+    driver.get(url)
+    #wait for the element to be present for 5 seconds
     try:
-        #go to the ig shop main page
-        driver.get(url)
-        #wait for the element to be present for 5 seconds
         WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, '//article/div/div')))
-        
         #get the container element for all posts
         container = driver.find_element_by_xpath('//article/div/div[contains(@style, "flex-direction: column")]')
         #get the the number of posts based on the limit
         posts = container.find_elements_by_xpath('.//a')[:limit]
         print("Page posts has been loaded")
-
-        #get post links
-        post_links = []
-        for post in posts:
-            try:
-                post_links.append(post.get_attribute('href'))
-            except NoSuchElementException:
-                print("post link not found")
-
-        #for each post link get go to the post page, then get the details
-        for link in post_links:
-            driver.get(link)
-            WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, '//article[@role="presentation"]')))
-            try:
-                likes = driver.find_element_by_xpath('//*[@id="react-root"]/section/main/div/div[1]/article/div[3]/section[2]/div/div/button/span').get_attribute('textContent')
-            except NoSuchElementException:
-                likes = ""
-            try:
-                publish_date = driver.find_element_by_xpath('//*[@id="react-root"]/section/main/div/div[1]/article/div[3]/div[2]/a/time').get_attribute('datetime')
-            except NoSuchElementException:
-                publish_date = ""
-            try:
-                post_content = driver.find_element_by_xpath('//*[@id="react-root"]/section/main/div/div/article/div[3]/div[1]/ul/div/li/div/div/div[2]/span').get_attribute('textContent')
-            except NoSuchElementException:
-                post_content = ""
-
-            details.append({
-                'url' : url,
-                'publish_date' : datetime.fromisoformat(publish_date[:-1]).strftime('%m/%d/%Y'),
-                'post_content' : post_content,
-                'likes' : likes,
-                'post_link' : link,  
-            })
-    #if an error occurred raise an ecception and return the details
     except Exception as e:
-        print(e)
-        return details
+        print('Could not load posts -', e)
+        return []
+
+    #get post links
+    post_links = []
+    for post in posts:
+        try:
+            post_links.append(post.get_attribute('href'))
+        except NoSuchElementException:
+            print("post link not found")
+
+    #for each post link get go to the post page, then get the details
+    for link in post_links:
+        driver.get(link)
+        WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, '//article[@role="presentation"]')))
+        try:
+            likes = driver.find_element_by_xpath('//*[@id="react-root"]/section/main/div/div[1]/article/div[3]/section[2]/div/div/button/span').get_attribute('textContent')
+        except NoSuchElementException:
+            likes = ""
+        try:
+            publish_date = driver.find_element_by_xpath('//*[@id="react-root"]/section/main/div/div[1]/article/div[3]/div[2]/a/time').get_attribute('datetime')
+        except NoSuchElementException:
+            publish_date = ""
+        try:
+            post_content = driver.find_element_by_xpath('//*[@id="react-root"]/section/main/div/div/article/div[3]/div[1]/ul/div/li/div/div/div[2]/span').get_attribute('textContent')
+        except NoSuchElementException:
+            post_content = ""
+
+        details.append({
+            'url' : url,
+            'publish_date' : datetime.fromisoformat(publish_date[:-1]).strftime('%m/%d/%Y'),
+            'post_content' : post_content,
+            'likes' : likes,
+            'post_link' : link,  
+        })
 
     return details
