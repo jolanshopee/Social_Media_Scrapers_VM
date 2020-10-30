@@ -84,7 +84,7 @@ def get_page_details(driver,url):
     return page_details
 
 
-def get_post_details(driver,url,limit):
+def get_latest_posts(driver, url, limit):
     """
     GET INSTAGRAM POST DETAILS
     Function: get_post_details(driver,url, limit)

@@ -58,7 +58,7 @@ def post_details_sample():
     #execute the get_page_details function for each url
     for url in URLs:
         try:
-            post_details = ig.get_post_details(driver,url,5)
+            post_details = ig.get_latest_posts(driver,url,5)
         except Exception as e:
             print(e)
         df_post_details = df_post_details.append(post_details)
