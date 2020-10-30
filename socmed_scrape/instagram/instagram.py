@@ -12,6 +12,24 @@ from selenium.common.exceptions import NoSuchElementException
 from selenium.common.exceptions import InvalidArgumentException
 
 
+def login(driver):
+    """Log in w/ username and password.
+
+    If the script is executed with 2 positional arguments
+    (i.e. python fb_scrape.py username@shopee.com mypassword)
+    then the browser will log in automatically with the provided credentials.
+    """
+    driver.get('https://www.instagram.com/')
+    if len(sys.argv) < 3:
+        _ = input('Please log into the browser before continuing')
+    else:
+        username = sys.argv[1]
+        password = sys.argv[2]
+        driver.find_element_by_css_selector("input[name='username']").send_keys(username)
+        driver.find_element_by_css_selector("input[type='password']").send_keys(password)
+        driver.find_element_by_css_selector("button[type='submit']").click()
+        time.sleep(10)
+
 
 def get_page_details(driver,url):
     """
