@@ -1,3 +1,4 @@
+import time
 from datetime import datetime, timedelta
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -84,7 +85,7 @@ def get_page_details(driver,url):
     return page_details
 
 
-def get_latest_posts(driver, url, limit):
+def get_latest_posts(driver, url, days=7, limit=30):
     """
     GET INSTAGRAM POST DETAILS
     Function: get_post_details(driver,url, limit)
@@ -101,16 +102,39 @@ def get_latest_posts(driver, url, limit):
         - 'post_link' : instagram post link
     """
     details = []
-    #go to the ig shop main page
     driver.get(url)
-    #wait for the element to be present for 5 seconds
+    #go to the ig shop main page
     try:
-        WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, '//article/div/div')))
-        #get the container element for all posts
-        container = driver.find_element_by_xpath('//article/div/div[contains(@style, "flex-direction: column")]')
-        #get the the number of posts based on the limit
-        posts = container.find_elements_by_xpath('.//a')[:limit]
+        #wait for the element to be present for 5 seconds
+        try:
+            WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.XPATH, '//article/div/div'))
+            )
+            num_posts_text = driver.find_element_by_xpath('//main//header//section//ul').text
+            num_posts = float(num_posts_text.split(' posts')[0])
+            post_container = driver.find_element_by_xpath(
+                '//article/div/div[contains(@style, "flex-direction: column")]'
+            )
+        except:
+            print('no posts found')
+            return []
+
+        limit_reached = False
+        retry = 0
+        max_retry = 10
+        while not limit_reached:
+            retry += 1
+            posts = post_container.find_elements_by_xpath('.//a')
+            if retry >= max_retry or len(posts) >= max(limit, num_posts):
+                print('posts from last {} days loaded'.format(days))
+                limit_reached = True
+                break
+            else:
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                time.sleep(1)
+
         print("Page posts has been loaded")
+
     except Exception as e:
         print('Could not load posts -', e)
         return []
@@ -133,6 +157,8 @@ def get_latest_posts(driver, url, limit):
             likes = ""
         try:
             publish_date = driver.find_element_by_xpath('//*[@id="react-root"]/section/main/div/div[1]/article/div[3]/div[2]/a/time').get_attribute('datetime')
+            publish_date = datetime.fromisoformat(publish_date[:-1])
+            publish_date_str = publish_date.strftime('%m/%d/%Y')
         except NoSuchElementException:
             publish_date = ""
         try:
@@ -142,10 +168,13 @@ def get_latest_posts(driver, url, limit):
 
         details.append({
             'url' : url,
-            'publish_date' : datetime.fromisoformat(publish_date[:-1]).strftime('%m/%d/%Y'),
+            'publish_date' : publish_date_str,
             'post_content' : post_content,
             'likes' : likes,
-            'post_link' : link,  
+            'post_link' : link,
         })
+        if (datetime.now() - publish_date).days > days:
+            print('date limit reached')
+            break
 
     return details
