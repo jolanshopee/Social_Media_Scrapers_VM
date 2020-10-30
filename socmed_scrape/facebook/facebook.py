@@ -272,7 +272,7 @@ def get_latest_posts(shop_url,days=7):
     try:
         for post in get_posts(username):
             
-            if (datetime.now() - post['time']).days <= 7:
+            if (datetime.now() - post['time']).days <= days:
                 details.append({
                 'url' : shop_url,
                 'publish_time' : post['time'].strftime('%m/%d/%Y'),
