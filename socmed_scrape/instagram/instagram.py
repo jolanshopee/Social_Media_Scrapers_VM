@@ -1,3 +1,4 @@
+import time
 from datetime import datetime, timedelta
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -11,6 +12,24 @@ from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException
 from selenium.common.exceptions import InvalidArgumentException
 
+
+def login(driver):
+    """Log in w/ username and password.
+
+    If the script is executed with 2 positional arguments
+    (i.e. python fb_scrape.py username@shopee.com mypassword)
+    then the browser will log in automatically with the provided credentials.
+    """
+    driver.get('https://www.instagram.com/')
+    if len(sys.argv) < 3:
+        _ = input('Please log into the browser before continuing')
+    else:
+        username = sys.argv[1]
+        password = sys.argv[2]
+        driver.find_element_by_css_selector("input[name='username']").send_keys(username)
+        driver.find_element_by_css_selector("input[type='password']").send_keys(password)
+        driver.find_element_by_css_selector("button[type='submit']").click()
+        time.sleep(10)
 
 
 def get_page_details(driver,url):
@@ -66,10 +85,7 @@ def get_page_details(driver,url):
     return page_details
 
 
-
-
-
-def get_post_details(driver,url,limit):
+def get_latest_posts(driver, url, days=7, limit=30):
     """
     GET INSTAGRAM POST DETAILS
     Function: get_post_details(driver,url, limit)
@@ -86,53 +102,79 @@ def get_post_details(driver,url,limit):
         - 'post_link' : instagram post link
     """
     details = []
+    driver.get(url)
+    #go to the ig shop main page
     try:
-        #go to the ig shop main page
-        driver.get(url)
         #wait for the element to be present for 5 seconds
-        WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, '//article/div/div')))
-        
-        #get the container element for all posts
-        container = driver.find_element_by_xpath('//article/div/div[contains(@style, "flex-direction: column")]')
-        #get the the number of posts based on the limit
-        posts = container.find_elements_by_xpath('.//a')[:limit]
+        try:
+            WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.XPATH, '//article/div/div'))
+            )
+            num_posts_text = driver.find_element_by_xpath('//main//header//section//ul').text
+            num_posts = float(num_posts_text.split(' posts')[0])
+            post_container = driver.find_element_by_xpath(
+                '//article/div/div[contains(@style, "flex-direction: column")]'
+            )
+        except:
+            print('no posts found')
+            return []
+
+        limit_reached = False
+        retry = 0
+        max_retry = 10
+        while not limit_reached:
+            retry += 1
+            posts = post_container.find_elements_by_xpath('.//a')
+            if retry >= max_retry or len(posts) >= max(limit, num_posts):
+                print('posts from last {} days loaded'.format(days))
+                limit_reached = True
+                break
+            else:
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                time.sleep(1)
+
         print("Page posts has been loaded")
 
-        #get post links
-        post_links = []
-        for post in posts:
-            try:
-                post_links.append(post.get_attribute('href'))
-            except NoSuchElementException:
-                print("post link not found")
-
-        #for each post link get go to the post page, then get the details
-        for link in post_links:
-            driver.get(link)
-            WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, '//article[@role="presentation"]')))
-            try:
-                likes = driver.find_element_by_xpath('//*[@id="react-root"]/section/main/div/div[1]/article/div[3]/section[2]/div/div/button/span').get_attribute('textContent')
-            except NoSuchElementException:
-                likes = ""
-            try:
-                publish_date = driver.find_element_by_xpath('//*[@id="react-root"]/section/main/div/div[1]/article/div[3]/div[2]/a/time').get_attribute('datetime')
-            except NoSuchElementException:
-                publish_date = ""
-            try:
-                post_content = driver.find_element_by_xpath('//*[@id="react-root"]/section/main/div/div/article/div[3]/div[1]/ul/div/li/div/div/div[2]/span').get_attribute('textContent')
-            except NoSuchElementException:
-                post_content = ""
-
-            details.append({
-                'url' : url,
-                'publish_date' : datetime.fromisoformat(publish_date[:-1]).strftime('%m/%d/%Y'),
-                'post_content' : post_content,
-                'likes' : likes,
-                'post_link' : link,  
-            })
-    #if an error occurred raise an ecception and return the details
     except Exception as e:
-        print(e)
-        return details
+        print('Could not load posts -', e)
+        return []
+
+    #get post links
+    post_links = []
+    for post in posts:
+        try:
+            post_links.append(post.get_attribute('href'))
+        except NoSuchElementException:
+            print("post link not found")
+
+    #for each post link get go to the post page, then get the details
+    for link in post_links:
+        driver.get(link)
+        WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, '//article[@role="presentation"]')))
+        try:
+            likes = driver.find_element_by_xpath('//*[@id="react-root"]/section/main/div/div[1]/article/div[3]/section[2]/div/div/button/span').get_attribute('textContent')
+        except NoSuchElementException:
+            likes = ""
+        try:
+            publish_date = driver.find_element_by_xpath('//*[@id="react-root"]/section/main/div/div[1]/article/div[3]/div[2]/a/time').get_attribute('datetime')
+            publish_date = datetime.fromisoformat(publish_date[:-1])
+            publish_date_str = publish_date.strftime('%m/%d/%Y')
+        except NoSuchElementException:
+            publish_date = ""
+        try:
+            post_content = driver.find_element_by_xpath('//*[@id="react-root"]/section/main/div/div/article/div[3]/div[1]/ul/div/li/div/div/div[2]/span').get_attribute('textContent')
+        except NoSuchElementException:
+            post_content = ""
+
+        details.append({
+            'url' : url,
+            'publish_date' : publish_date_str,
+            'post_content' : post_content,
+            'likes' : likes,
+            'post_link' : link,
+        })
+        if (datetime.now() - publish_date).days > days:
+            print('date limit reached')
+            break
 
     return details
