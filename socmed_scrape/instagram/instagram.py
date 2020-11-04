@@ -13,7 +13,10 @@ from selenium.common.exceptions import NoSuchElementException
 from selenium.common.exceptions import InvalidArgumentException
 
 
-def login(driver):
+search_url = 'https://www.instagram.com/explore/tags/{}/'
+
+
+def login(driver, username='', password=''):
     """Log in w/ username and password.
 
     If the script is executed with 2 positional arguments
@@ -21,18 +24,53 @@ def login(driver):
     then the browser will log in automatically with the provided credentials.
     """
     driver.get('https://www.instagram.com/')
-    if len(sys.argv) < 3:
+    if not (username and password):
         _ = input('Please log into the browser before continuing')
     else:
-        username = sys.argv[1]
-        password = sys.argv[2]
+        time.sleep(1)
         driver.find_element_by_css_selector("input[name='username']").send_keys(username)
         driver.find_element_by_css_selector("input[type='password']").send_keys(password)
         driver.find_element_by_css_selector("button[type='submit']").click()
         time.sleep(10)
 
 
-def get_page_details(driver,url):
+def search_keywords(driver, keyword, limit=10):
+    time.sleep(3)
+    keyword_urls = []
+    if keyword.endswith('ph'):
+        keyword = keyword[:-2]
+
+    driver.get(search_url.format(keyword.replace(' ','') + 'philippines'))
+    retry = 0
+    prev_len = 0
+    while len(keyword_urls) < limit and retry <= 5:
+        if prev_len == len(keyword_urls):
+            retry += 1
+            time.sleep(3)
+
+        prev_len = len(keyword_urls)
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        results_groups = driver.find_elements_by_css_selector("div[style*='flex-direction']")
+        results = []
+        for group in results_groups:
+            post_links = group.find_elements_by_tag_name("a")
+            for link in post_links:
+                try:
+                    post_url = link.get_attribute('href')
+                except Exception as e:
+                    print(e)
+                    continue
+                if post_url not in [i['post_url'] for i in keyword_urls]:
+                    keyword_urls.append({
+                        'keyword': keyword,
+                        'post_url': post_url
+                    })
+
+    keyword_urls = keyword_urls[:limit]
+    print(keyword, len(keyword_urls), 'posts found')
+    return keyword_urls
+
+def get_page_details(driver, url, from_post=False, ignore=[]):
     """
     GET INSTAGRAM PAGE DETAILS
     Function: get_page_details(driver,url)
@@ -48,7 +86,20 @@ def get_page_details(driver,url):
         - 'website' : page has website link
     """
     page_details = {'ig_url': url}
+    if from_post:
+        driver.get(url)
+        shop_url = driver.find_element_by_tag_name('header').find_element_by_tag_name('a').get_attribute('href')
+        username = shop_url.split('/')[-2]
+        page_details.update({
+            'ig_url': shop_url,
+            'username': username,
+            'post_url': url
+        })
+
     try:
+        if page_details['ig_url'] in ignore:
+            return {}
+
         #go to the ig shop main page
         driver.get(page_details['ig_url'])
 
@@ -64,7 +115,7 @@ def get_page_details(driver,url):
         except NoSuchElementException:
             page_details['about'] = ''
         try:
-            page_details['posts'] = driver.find_element_by_xpath('//header/section/ul/li[1]/a/span').get_attribute('textContent')
+            page_details['posts'] = driver.find_element_by_xpath('//header/section//li').get_attribute('textContent').split(' ')[0]
         except NoSuchElementException:
             page_details['posts'] = ''
         try:
