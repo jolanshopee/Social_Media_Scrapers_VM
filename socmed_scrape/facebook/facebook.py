@@ -26,7 +26,7 @@ def login(driver, username='', password=''):
     then the browser will log in automatically with the provided credentials.
     """
     driver.get('https://www.facebook.com/')
-    if not (username and password)
+    if not (username and password):
         _ = input('Please log into the browser before continuing')
     else:
         driver.find_element_by_xpath('//input[@id="email"]').send_keys(username)

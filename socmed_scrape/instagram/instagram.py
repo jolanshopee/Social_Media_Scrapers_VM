@@ -40,7 +40,7 @@ def search_keywords(driver, keyword, limit=10):
     if keyword.endswith('ph'):
         keyword = keyword[:-2]
 
-    driver.get(search_url.format(keyword.replace(' ','') + 'philippines'))
+    driver.get(search_url.format(keyword.replace(' ','') + 'ph'))
     retry = 0
     prev_len = 0
     while len(keyword_urls) < limit and retry <= 5:
