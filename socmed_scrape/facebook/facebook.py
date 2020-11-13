@@ -19,19 +19,16 @@ from facebook_scraper import get_posts
 
 
 #LOGIN
-def login(driver):
+def login(driver, username='', password=''):
     """Log in w/ username and password.
 
-    If the script is executed with 2 positional arguments
-    (i.e. python fb_scrape.py username@shopee.com mypassword)
+    If the function is executed with username and password kwargs
     then the browser will log in automatically with the provided credentials.
     """
     driver.get('https://www.facebook.com/')
-    if len(sys.argv) < 3:
+    if not (username and password):
         _ = input('Please log into the browser before continuing')
     else:
-        username = sys.argv[1]
-        password = sys.argv[2]
         driver.find_element_by_xpath('//input[@id="email"]').send_keys(username)
         driver.find_element_by_xpath('//input[@id="pass"]').send_keys(password)
         driver.find_element_by_xpath('//button[@name="login"]').click()
@@ -272,7 +269,7 @@ def get_latest_posts(shop_url,days=7):
     try:
         for post in get_posts(username):
             
-            if (datetime.now() - post['time']).days <= 7:
+            if (datetime.now() - post['time']).days <= days:
                 details.append({
                 'url' : shop_url,
                 'publish_time' : post['time'].strftime('%m/%d/%Y'),
