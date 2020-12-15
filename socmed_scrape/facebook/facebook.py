@@ -131,7 +131,7 @@ def chk_latest_post(driver, shop_url):
     return post_dates[0]
 
 #RETURNS SHOP DETAILS
-def get_page_details(driver, shop_url):
+def get_page_details(driver, shop_url, shopid):
     """Get shop/page details
     Function: get_page_details(driver, shop_url)
     Description: Gets the details of a facebook page.
@@ -146,6 +146,7 @@ def get_page_details(driver, shop_url):
         - 'has_shop' : if page has a shop button
     """
     shop_result = {'url': shop_url}
+    shop_result['shop_id'] = shopid
 
     # match only alphanumeric after facebook.com, 
     pattern = 'facebook\.com\/([A-Za-z0-9-_.]*)'
@@ -154,7 +155,7 @@ def get_page_details(driver, shop_url):
     except:
         print('username not found')
         username = 'n/a'
-    shop_result = {'username': username}
+    shop_result['username'] = username
 
     about_suffix = 'about'
     if not shop_url.endswith('/'):
@@ -178,6 +179,13 @@ def get_page_details(driver, shop_url):
         except Exception as e:
             shop_result['likes'] = ''
             print('Cannot get likes')
+        
+        try:
+            followers_xpath = "//div[@role='main']/div[4]/div/div/div/div/div[contains(.//span, 'follow this')]"
+            shop_result['followers'] = driver.find_element_by_xpath(followers_xpath).text.split(' ')[0].replace(',','')
+        except Exception as e:
+            shop_result['followers'] = ''
+            print('Cannot get followers')
 
         try:
             shop_result['about'] = about_body.find_element_by_xpath('.//span[contains(text(),"About")]/ancestor::div[2]').get_attribute('textContent').split('About',1)[1]
